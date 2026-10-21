@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# NEURON derleme çıktıları
+x86_64/
+arm64/
+*.o
+*.c
+*.la
+*.lo
+mod_func.c
+nrnmech.dll
+
+# Brian2 önbelleği
+brian_preferences
+__brian_objects/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Çıktılar
+# outputs/ altındaki üretilen dosyalar yoksayılır, üretim scriptleri izlenir.
+outputs/*
+!outputs/*.py
+results*.csv
+*.png
+*.pdf
+
+# Loglar
+*.log
+
+# SDLC klasörü (sadece yerel — repoya push edilmez)
+SDLC/
