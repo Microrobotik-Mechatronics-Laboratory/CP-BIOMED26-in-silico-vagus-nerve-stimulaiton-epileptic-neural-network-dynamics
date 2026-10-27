@@ -52,3 +52,6 @@ results*.csv
 
 # SDLC klasörü (sadece yerel — repoya push edilmez)
 SDLC/
+
+# Legacy şeyler
+eski-kod/
