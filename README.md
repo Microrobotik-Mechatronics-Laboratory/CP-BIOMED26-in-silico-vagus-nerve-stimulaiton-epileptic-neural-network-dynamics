@@ -1,162 +1,101 @@
-# Nerve Frequency Study — Periferik Sinir Stimülasyonu Frekans Çalışması
+# In Silico VNS Modulation of Epileptic Hippocampal Dynamics (BIOMED 2026)
 
-## Study Scope
+Bu çalışma, medial temporal lob epilepsisindeki (mTLE) nöropatolojik hipokampal ağ dinamiklerinin (EC–DG–CA3–CA1), 30 farklı Vagus Sinir Stimülasyonu (VNS) parametre konfigürasyonuna verdiği elektrofizyolojik yanıtları ve nöbet baskılama oranını (SSR) çok ölçekli biyofiziksel hesaplamalı modelleme ile incelemektedir.
 
-### Basal Ganglians
+---
 
-### Neuron Model
+## 1. Çalışma Kapsamı ve Biyofiziksel Mimari
 
-### Plasticity Model
+Model çok ölçekli (multiscale) hiyerarşik bir zincir üzerine kurulmuştur:
 
---
-
-## Project Structure
-
-
-
---
-
-## How to start
-
-### uv Kurulumu
-
-Bu proje bağımlılık ve sanal ortam yönetimi için [uv](https://docs.astral.sh/uv/)
-kullanır. Aşağıdaki adımlarla işletim sisteminize göre kurabilirsiniz
-(detaylar: [uv kurulum dokümantasyonu](https://docs.astral.sh/uv/getting-started/installation/)).
-
-**macOS / Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-
-**Windows (PowerShell):**
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Kurulumdan sonra terminali yeniden başlatın ve doğrulayın:
-```bash
-uv --version
+[Point-Source Cuff Elektrot] 
+            │ (Ekstrasellüler alan: 1-3 mA, 1 Hz - 10 kHz, DC & Biphasic)
+            ▼
+[NEURON: MRG Akson Modeli] (15 Ranvier nodu, miyelinli lif, dt = 0.005 ms)
+            │ (Distal aksiyon potansiyelleri)
+            ▼
+[Brian2: Jittered Fiber Bundle] (20 lifli refrakter akson demeti)
+            │ (Depresan Tsodyks-Markram sinapsları)
+            ▼
+[Brian2: NTS Röle Çekirdeği] (30 LIF nöronu, Miles 1986 / Beaumont 2017 kalibrasyonu)
+            │ (Fasilitatör Tsodyks-Markram projeksiyonları)
+            ▼
+[Epileptik Hipokampal Mikrodevre] (~480 nöron: EC - DG - CA3 - CA1)
+  ├── 1. Hipokampal Skleroz (scl): Piramidal hücre kaybı, internöron korunumu
+  ├── 2. Mossy Fiber Sprouting (spr): DG granül hücreleri arası anormal rekürrent eksitasyon
+  ├── 3. Bozulmuş Klorür Dinamiği (tau_Cl): KCC2 yetmezliği -> depolarizan GABA
+  └── 4. Tri-sinaptik döngü ve rekürrent CA3 kolateralleri
+            │
+            ▼
+[LFP Simülasyonu & Spektral Biyobelirteçler]
+  ├── Dipolar transmembran sinaptik akım toplamı (Aussel et al. 2022)
+  ├── Butterworth bant geçiren filtreleme (0.15 - 480 Hz, 1024 Hz yeniden örnekleme)
+  └── Welch PSD, Teta Bandı (4-8 Hz) Gücü, Senkronizasyon İndeksi ve SSR
 ```
 
 ---
 
-### Dependices install
+## 2. Kurulum ve Ortam Hazırlığı
+
+Proje bağımlılık ve ortam yönetimi için `uv` kullanır:
 
 ```bash
-# 1. uv ile sanal ortam oluştur
+# 1. Sanal ortamı oluştur (Python 3.11)
 uv venv --python 3.11
 
-# 2. Bağımlılıkları yükle (numpy<2.0 kısıtı kritik — NEURON numpy 2.x ile uyumsuz)
-uv pip install --python .venv/bin/python "numpy>=1.24,<2.0" pandas matplotlib brian2 neuron
+# 2. Bağımlılıkları yükle (NEURON uyumu için numpy < 2.0 zorunludur)
+uv pip install --python .venv/bin/python "numpy>=1.24,<2.0" pandas matplotlib scipy brian2 neuron pytest
 
-# 3. Geliştirme bağımlılıkları (test + tip kontrolü, isteğe bağlı)
-uv pip install --python .venv/bin/python "pytest>=7.0" "mypy>=1.8"
-
-# 4. MRG / Sundt NEURON mekanizmalarını derle
-cd mechanisms && ../.venv/bin/nrnivmodl && cd ..
-```
---
-
-### Test ve Tip Kontrolü
-
-```bash
-.venv/bin/python -m pytest tests/ -v
-.venv/bin/python -m mypy config src visualization main.py tests
+# 3. Derlenmiş NEURON mekanizmalarını kontrol et
+uv run python -c "import neuron; from src.models._neuron_mechanisms import load_project_mechanisms; load_project_mechanisms(); print('NEURON mechanisms ready!')"
 ```
 
 ---
 
-## Kullanım
+## 3. Testlerin Koşturulması
+
+Tüm modüller, biyofiziksel denklemler ve entegrasyon seviyeleri otomatik birim testlerle kapsanmıştır:
 
 ```bash
-# Varsayılan parametrelerle hızlı test
-python main.py
-
-# Özel frekans listesi
-python main.py --frequencies 1 10 50 100 500
-
-# Farklı genlik ve fiber çapı
-python main.py --frequencies 20 100 200 --amp 5.0 --fiber-diam 12.8
-
-# Sonuçları CSV'ye kaydet
-python main.py --output results.csv
-
-# Grafikleri dosyaya kaydet (ekranda göstermeden)
-python main.py --save-plots outputs/ --no-plot
-
-# Tam frekans aralığı (yavaş — ~15-30 dakika)
-python main.py --full-range --amp 3.0
-
-# Tüm seçenekler
-python main.py --help
+uv run pytest tests/ -v
 ```
-
-### CLI Argümanları
-
-| Argüman | Varsayılan | Açıklama |
-|:---|:---:|:---|
-
---
-
-## Contrubution and Feedback
-
-### Commit Formatı
-
-```
-tip(kapsam): kısa açıklama
-
-Örnekler:
-  fix(models): fizyolojik sıcaklık ayarı — h.celsius = 37°C
-  feat(pipeline): paralel frekans sweep — multiprocessing
-  docs(readme): kurulum adımları güncellendi
-  refactor(config): magic number'lar defaults.py'e taşındı
-  test(analysis): point_source_potential sayısal doğrulama
-  chore(gitignore): derleme çıktıları eklendi
-```
-
-| Tip | Kullanım |
-|:---|:---|
-| `fix` | Hata düzeltme |
-| `feat` | Yeni özellik |
-| `docs` | Yalnızca dokümantasyon |
-| `refactor` | Davranış değiştirmeyen yeniden yapılandırma |
-| `test` | Test ekleme/güncelleme |
-| `chore` | Araç/yapılandırma değişiklikleri |
 
 ---
 
-## Python Kodlama Standartları
+## 4. Kullanım ve CLI Komutları
 
-### Stil
-- **PEP 8** — 4 boşluk girinti, maks 100 karakter satır
-- Değişken/fonksiyon: `snake_case` | Sınıf: `PascalCase` | Sabit: `UPPER_SNAKE_CASE`
-- Magic number yok — tüm sabitler `config/defaults.py`'de
+### 4.1. Tekil Simülasyon Denemesi (Tek Koşul)
 
-### Docstring Formatı
+```bash
+# Epileptik ağ üzerinde 20 Hz, 2.0 mA bifazik kare dalga uyarımı ve LFP/Raster grafiği üretimi
+uv run python main.py --condition epileptic --freq 20.0 --amp 2.0 --waveform rectangular --duration 500 --plot
 
-```python
-def fonksiyon(param: float, opsiyonel: int = 10) -> list:
-    """
-    Tek cümle özet.
-
-    Parametreler
-    ------------
-    param : float
-        Açıklama.
-    opsiyonel : int, optional
-        Açıklama. Varsayılan 10.
-
-    Döndürür
-    --------
-    list
-        Açıklama.
-    """
+# Sağlıklı kontrol ağında uyarım
+uv run python main.py --condition healthy --freq 20.0 --amp 2.0 --duration 500 --plot
 ```
 
-### Push Request Standart
+### 4.2. 30 Parametre Konfigürasyonlu Sistematik Sweep
 
+30 VNS koşulu (2 dalga formu $\times$ 3 genlik $\times$ 5 frekans) $\times$ 5 tekrar = 150 deneme + baseline kontrolü:
 
+```bash
+# Tam sweep çalıştır ve sonuç tablosu ile yayın grafiklerini otomatik üret
+uv run python main.py --run-sweep --repeats 5 --duration 500 --output-dir output
+```
 
+Üretilen Çıktılar:
+- `output/results/vns_epilepsy_sweep.csv`: Tüm denemelere ait bölgesel ateşleme hızları, teta gücü, senkronizasyon ve SSR metrikleri.
+- `output/figures/trial_epileptic_rectangular_20.0Hz.png`: Bipolar LFP ve hipokampal alt bölgeler raster plot grafiği.
+- `output/figures/frequency_response_biphasic_2ma.png`: Frekansa bağlı bölgesel ateşleme hızı ve teta gücü yanıt eğrileri.
+- `output/figures/seizure_suppression_heatmap.png`: Genlik vs Frekans vs SSR (Nöbet Bastırma Oranı) ısı haritası.
 
-info mail: (ege.mrml@gmail.com)[mailto:ege.mrml@gmail.com] or (musaadereli@gmail.com)[mailto:musaadereli@gmail.com]
+---
+
+## 5. Referanslar
+
+1. **Aussel A. et al.** (2022). *Cell to network computational model of the epileptic human hippocampus suggests specific roles of network and channel dysfunctions in the ictal and interictal oscillations.* J Comput Neurosci, 50, 519–535.
+2. **Ahn S. et al.** (2016). *A computational model of the human hippocampal formation.* J Comput Neurosci, 41, 207–223.
+3. **Dereli M. et al.** (2026). *Frequency-dependent forebrain recruitment via vagus nerve stimulation.* 24th National Neuroscience Congress (USK 2026), p. 326.
+4. **Miles R.** (1986). *Frequency dependence of synaptic transmission.* J Neurophysiol, 55(5), 1076–1090.
+5. **Beaumont E. et al.** (2017). *Vagus nerve stimulation parameter titration.* Am J Physiol Heart Circ Physiol, 313(2), H354–H367.
